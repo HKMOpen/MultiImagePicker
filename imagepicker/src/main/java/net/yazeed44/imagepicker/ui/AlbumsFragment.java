@@ -15,11 +15,12 @@ import com.octo.android.robospice.persistence.exception.SpiceException;
 import com.octo.android.robospice.request.listener.RequestListener;
 
 import net.yazeed44.imagepicker.library.R;
-import net.yazeed44.imagepicker.util.AlbumEntry;
+import net.yazeed44.imagepicker.model.AlbumEntry;
 import net.yazeed44.imagepicker.util.Events;
 import net.yazeed44.imagepicker.util.LoadingAlbumsRequest;
 import net.yazeed44.imagepicker.util.OfflineSpiceService;
 import net.yazeed44.imagepicker.util.Picker;
+import net.yazeed44.imagepicker.util.Util;
 
 import java.util.ArrayList;
 
@@ -30,11 +31,12 @@ import de.greenrobot.event.EventBus;
  * Created by yazeed44 on 11/22/14.
  */
 public class AlbumsFragment extends Fragment implements RequestListener<ArrayList> {
-    public static final String TAG = "Albums Fragment";
+    public static final String TAG = AlbumsFragment.class.getSimpleName();
     protected RecyclerView mAlbumsRecycler;
     protected SpiceManager mSpiceManager = new SpiceManager(OfflineSpiceService.class);
     protected ArrayList<AlbumEntry> mAlbumList;
     protected Picker mPickOptions;
+    protected boolean mShouldPerformClickOnCapturedAlbum = false;
 
 
     @Override
@@ -48,43 +50,25 @@ public class AlbumsFragment extends Fragment implements RequestListener<ArrayLis
 
         if (mAlbumList == null) {
 
-            final Events.onAlbumsLoadedEvent albumLoadedEvent = EventBus.getDefault().getStickyEvent(Events.onAlbumsLoadedEvent.class);
+            final Events.OnAlbumsLoadedEvent albumLoadedEvent = EventBus.getDefault().getStickyEvent(Events.OnAlbumsLoadedEvent.class);
 
             if (albumLoadedEvent != null) {
                 mAlbumList = albumLoadedEvent.albumList;
             }
-
-
         }
 
-
         setupAdapter();
-
-
         setupRecycler();
-        setupAdapter();
 
         return mAlbumsRecycler;
     }
 
-    protected void setupRecycler() {
-
-        mAlbumsRecycler.setHasFixedSize(true);
-
-
-        final GridLayoutManager gridLayoutManager = new GridLayoutManager(getActivity(), getResources().getInteger(R.integer.num_columns_albums));
-        gridLayoutManager.setOrientation(LinearLayoutManager.VERTICAL);
-
-        mAlbumsRecycler.setLayoutManager(gridLayoutManager);
-
-
-    }
-
     @Override
     public void onStart() {
-        if (mAlbumList == null) {
-            mSpiceManager.start(getActivity());
-        }
+        mSpiceManager.start(getActivity());
+
+        EventBus.getDefault().register(this);
+
         super.onStart();
     }
 
@@ -93,23 +77,9 @@ public class AlbumsFragment extends Fragment implements RequestListener<ArrayLis
         if (mSpiceManager.isStarted()) {
             mSpiceManager.shouldStop();
         }
+        EventBus.getDefault().unregister(this);
         super.onStop();
     }
-
-
-    public void setupAdapter() {
-        if (mAlbumList == null) {
-            final LoadingAlbumsRequest loadingRequest = new LoadingAlbumsRequest(getActivity());
-
-            mSpiceManager.execute(loadingRequest, this);
-        } else {
-
-            mAlbumsRecycler.setAdapter(new AlbumsAdapter(mAlbumList, mAlbumsRecycler, mPickOptions));
-        }
-
-
-    }
-
 
     @Override
     public void onRequestFailure(SpiceException spiceException) {
@@ -118,30 +88,81 @@ public class AlbumsFragment extends Fragment implements RequestListener<ArrayLis
     }
 
     @Override
-    public void onRequestSuccess(ArrayList albumEntries) {
+    public void onRequestSuccess(final ArrayList albumEntries) {
 
         if (hasLoadedSuccessfully(albumEntries)) {
             mAlbumList = albumEntries;
 
-            EventBus.getDefault().postSticky(new Events.onAlbumsLoadedEvent(mAlbumList));
-
-            final AlbumsAdapter albumsAdapter = new AlbumsAdapter(albumEntries, mAlbumsRecycler, mPickOptions);
+            final AlbumsAdapter albumsAdapter = new AlbumsAdapter(this, albumEntries, mAlbumsRecycler);
             mAlbumsRecycler.setAdapter(albumsAdapter);
 
+            EventBus.getDefault().postSticky(new Events.OnAlbumsLoadedEvent(mAlbumList));
 
+
+            if (!mShouldPerformClickOnCapturedAlbum) {
+                return;
+            }
+
+            mAlbumsRecycler.postDelayed(new Runnable() {
+                @Override
+                public void run() {
+
+                    if (!mAlbumsRecycler.hasPendingAdapterUpdates()) {
+                        pickLatestCapturedImage();
+                        mShouldPerformClickOnCapturedAlbum = false;
+                    } else {
+                        mAlbumsRecycler.postDelayed(this, 100);
+                    }
+
+                }
+            }, 100);
         }
 
+    }
 
+    protected void setupRecycler() {
+
+        mAlbumsRecycler.setHasFixedSize(true);
+        final GridLayoutManager gridLayoutManager = new GridLayoutManager(getActivity(), getResources().getInteger(R.integer.num_columns_albums));
+        gridLayoutManager.setOrientation(LinearLayoutManager.VERTICAL);
+
+        mAlbumsRecycler.setLayoutManager(gridLayoutManager);
+
+
+    }
+
+    public void setupAdapter() {
+        if (mAlbumList == null) {
+            final LoadingAlbumsRequest loadingRequest = new LoadingAlbumsRequest(getActivity(), mPickOptions);
+
+            mSpiceManager.execute(loadingRequest, this);
+        } else {
+
+            mAlbumsRecycler.setAdapter(new AlbumsAdapter(this, mAlbumList, mAlbumsRecycler));
+        }
     }
 
     private boolean hasLoadedSuccessfully(final ArrayList albumList) {
         return albumList != null && albumList.size() > 0;
     }
 
+    public void onEvent(final Events.OnReloadAlbumsEvent reloadAlbums) {
+        mShouldPerformClickOnCapturedAlbum = true;
 
-   /* public void onEvent(final Events.OnAttachFabEvent fabEvent){
-        fabEvent.fab.attachToRecyclerView(mAlbumsRecycler);
-    }*/
+        EventBus.getDefault().removeStickyEvent(Events.OnAlbumsLoadedEvent.class);
+        mAlbumList = null;
+        setupAdapter();
+    }
 
+    private void pickLatestCapturedImage() {
+            for (final AlbumEntry albumEntry : mAlbumList) {
+                if (albumEntry.name.equals(PickerActivity.CAPTURED_IMAGES_ALBUM_NAME)) {
+                    EventBus.getDefault().postSticky(new Events.OnPickImageEvent(Util.getAllPhotosAlbum(mAlbumList).imageList.get(0)));
+                    mAlbumsRecycler.getChildAt(mAlbumList.indexOf(albumEntry)).performClick();
+                }
+            }
+
+
+    }
 
 }

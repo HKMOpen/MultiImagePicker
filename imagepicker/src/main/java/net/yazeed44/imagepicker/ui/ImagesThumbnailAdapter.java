@@ -1,5 +1,11 @@
 package net.yazeed44.imagepicker.ui;
 
+import android.graphics.Color;
+import android.graphics.PorterDuff;
+import android.graphics.drawable.Drawable;
+import android.support.v4.app.Fragment;
+import android.support.v4.content.ContextCompat;
+import android.support.v4.graphics.drawable.DrawableCompat;
 import android.support.v7.widget.RecyclerView;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -10,9 +16,9 @@ import android.widget.ImageView;
 import com.bumptech.glide.Glide;
 
 import net.yazeed44.imagepicker.library.R;
-import net.yazeed44.imagepicker.util.AlbumEntry;
+import net.yazeed44.imagepicker.model.AlbumEntry;
+import net.yazeed44.imagepicker.model.ImageEntry;
 import net.yazeed44.imagepicker.util.Events;
-import net.yazeed44.imagepicker.util.ImageEntry;
 import net.yazeed44.imagepicker.util.Picker;
 import net.yazeed44.imagepicker.util.Util;
 
@@ -21,25 +27,51 @@ import de.greenrobot.event.EventBus;
 /**
  * Created by yazeed44 on 11/23/14.
  */
-public class ImagesThumbnailAdapter extends RecyclerView.Adapter<ImagesThumbnailAdapter.ImagesViewHolder> implements Util.OnClickImage {
+public class ImagesThumbnailAdapter extends RecyclerView.Adapter<ImagesThumbnailAdapter.ImageViewHolder> implements Util.OnClickImage {
 
 
     protected final AlbumEntry mAlbum;
     protected final RecyclerView mRecyclerView;
     protected final Picker mPickOptions;
 
+    protected final Drawable mCheckIcon;
+    protected final Drawable mVideoIcon;
+    protected final Fragment mFragment;
 
-    public ImagesThumbnailAdapter(final AlbumEntry album, final RecyclerView fragment, Picker pickOptions) {
+
+    public ImagesThumbnailAdapter(final Fragment fragment, final AlbumEntry album, final RecyclerView recyclerView, Picker pickOptions) {
+        mFragment = fragment;
         this.mAlbum = album;
-        this.mRecyclerView = fragment;
+        this.mRecyclerView = recyclerView;
         mPickOptions = pickOptions;
+
+        mCheckIcon = createCheckIcon();
+        mVideoIcon = createVideoIcon();
+    }
+
+    private Drawable createCheckIcon() {
+        Drawable checkIcon = ContextCompat.getDrawable(mRecyclerView.getContext(), R.drawable.ic_action_done_white);
+        checkIcon = DrawableCompat.wrap(checkIcon);
+        DrawableCompat.setTint(checkIcon, mPickOptions.checkIconTintColor);
+        return checkIcon;
+    }
+
+    private Drawable createVideoIcon() {
+        if (!mPickOptions.videosEnabled) {
+            return null;
+        }
+        Drawable videoIcon = ContextCompat.getDrawable(mRecyclerView.getContext(), R.drawable.ic_play_arrow);
+        videoIcon = DrawableCompat.wrap(videoIcon);
+        DrawableCompat.setTint(videoIcon, mPickOptions.videoIconTintColor);
+        return videoIcon;
     }
 
     @Override
-    public ImagesViewHolder onCreateViewHolder(ViewGroup viewGroup, int i) {
+    public ImageViewHolder onCreateViewHolder(ViewGroup viewGroup, int i) {
         final View imageLayout = LayoutInflater.from(mRecyclerView.getContext()).inflate(R.layout.element_image, viewGroup, false);
 
-        return new ImagesViewHolder(imageLayout, this);
+
+        return new ImageViewHolder(imageLayout, this);
     }
 
     @Override
@@ -48,11 +80,11 @@ public class ImagesThumbnailAdapter extends RecyclerView.Adapter<ImagesThumbnail
     }
 
     @Override
-    public void onBindViewHolder(ImagesViewHolder imagesViewHolder, int position) {
-        final ImageEntry photoEntry = mAlbum.imageList.get(position);
-        setHeight(imagesViewHolder.itemView);
-        displayThumbnail(imagesViewHolder, photoEntry);
-        drawGrid(imagesViewHolder, photoEntry);
+    public void onBindViewHolder(ImageViewHolder imageViewHolder, int position) {
+        final ImageEntry imageEntry = mAlbum.imageList.get(position);
+        setHeight(imageViewHolder.itemView);
+        displayThumbnail(imageViewHolder, imageEntry);
+        drawGrid(imageViewHolder, imageEntry);
 
     }
 
@@ -60,24 +92,20 @@ public class ImagesThumbnailAdapter extends RecyclerView.Adapter<ImagesThumbnail
     public void onClickImage(View layout, ImageView thumbnail, ImageView check) {
 
         final int position = Util.getPositionOfChild(layout, R.id.image_layout, mRecyclerView);
-        final ImagesViewHolder holder = (ImagesViewHolder) mRecyclerView.getChildViewHolder(layout);
+        final ImageViewHolder holder = (ImageViewHolder) mRecyclerView.getChildViewHolder(layout);
         pickImage(holder, mAlbum.imageList.get(position));
     }
 
 
     public void setHeight(final View convertView) {
-
-
-        final int height = mRecyclerView.getContext().getResources().getDimensionPixelSize(R.dimen.image_height);
-
+        final int height = mRecyclerView.getMeasuredWidth() / mRecyclerView.getResources().getInteger(R.integer.num_columns_images);
         convertView.setLayoutParams(new AbsListView.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, height));
-
     }
 
-    public void displayThumbnail(final ImagesViewHolder holder, final ImageEntry photo) {
+    public void displayThumbnail(final ImageViewHolder holder, final ImageEntry photo) {
 
 
-        Glide.with(mRecyclerView.getContext())
+        Glide.with(mFragment)
                 .load(photo.path)
                 .asBitmap()
                 .centerCrop()
@@ -87,35 +115,45 @@ public class ImagesThumbnailAdapter extends RecyclerView.Adapter<ImagesThumbnail
 
     }
 
-    public void drawGrid(final ImagesViewHolder holder, final ImageEntry imageEntry) {
+    public void drawGrid(final ImageViewHolder holder, final ImageEntry imageEntry) {
 
-        final int orgPadding = mRecyclerView.getResources().getDimensionPixelSize(R.dimen.image_spacing);
 
-        if (isChecked(imageEntry)) {
-            //holder.itemView.setBackgroundColor(mPickOptions.imageBackgroundColorWhenChecked);
+        holder.check.setImageDrawable(mCheckIcon);
+        holder.videoIcon.setVisibility(View.GONE);
+
+        if (imageEntry.isPicked) {
+            holder.itemView.setBackgroundColor(mPickOptions.imageBackgroundColorWhenChecked);
             holder.check.setBackgroundColor(mPickOptions.imageBackgroundColorWhenChecked);
 
 
-            // holder.thumbnail.setColorFilter(mPickOptions.checkedImageOverlayColor);
-            holder.itemView.setPadding(orgPadding, orgPadding, orgPadding, orgPadding);
+            holder.thumbnail.setColorFilter(mPickOptions.checkedImageOverlayColor);
+            final int padding = mRecyclerView.getContext().getResources().getDimensionPixelSize(R.dimen.image_checked_padding);
+            holder.itemView.setPadding(padding, padding, padding, padding);
         } else {
+
             holder.check.setBackgroundColor(mPickOptions.imageCheckColor);
-            //holder.itemView.setBackgroundColor(mPickOptions.imageBackgroundColor);
-            // holder.thumbnail.setColorFilter(Color.TRANSPARENT);
-            holder.itemView.setPadding(orgPadding, orgPadding, orgPadding, orgPadding);
+            holder.itemView.setBackgroundColor(mPickOptions.imageBackgroundColor);
+            holder.thumbnail.setColorFilter(Color.TRANSPARENT);
+            holder.itemView.setPadding(0, 0, 0, 0);
         }
 
         if (mPickOptions.pickMode == Picker.PickMode.SINGLE_IMAGE) {
             holder.check.setVisibility(View.GONE);
         }
+
+        if (imageEntry.isVideo) {
+            holder.thumbnail.setColorFilter(mPickOptions.videoThumbnailOverlayColor, PorterDuff.Mode.MULTIPLY);
+            holder.videoIcon.setImageDrawable(mVideoIcon);
+            holder.videoIcon.setVisibility(View.VISIBLE);
+        }
+
     }
 
 
-    public void pickImage(final ImagesViewHolder holder, final ImageEntry imageEntry) {
+    public void pickImage(final ImageViewHolder holder, final ImageEntry imageEntry) {
 
-        final boolean isPicked = isChecked(imageEntry);
 
-        if (isPicked) {
+        if (imageEntry.isPicked) {
             //Unpick
 
             EventBus.getDefault().post(new Events.OnUnpickImageEvent(imageEntry));
@@ -132,31 +170,17 @@ public class ImagesThumbnailAdapter extends RecyclerView.Adapter<ImagesThumbnail
 
     }
 
-
-    public boolean isChecked(final ImageEntry pImageEntry) {
-
-
-        for (final ImageEntry imageEntry : PickerActivity.sCheckedImages) {
-
-            if (imageEntry.equals(pImageEntry)) {
-                return true;
-            }
-
-        }
-
-        return false;
-    }
-
-
-    class ImagesViewHolder extends RecyclerView.ViewHolder {
+    public static class ImageViewHolder extends RecyclerView.ViewHolder {
         private final ImageView thumbnail;
         private final ImageView check;
+        private final ImageView videoIcon;
 
-        public ImagesViewHolder(final View itemView, final Util.OnClickImage listener) {
+        public ImageViewHolder(final View itemView, final Util.OnClickImage listener) {
             super(itemView);
 
             thumbnail = (ImageView) itemView.findViewById(R.id.image_thumbnail);
             check = (ImageView) itemView.findViewById(R.id.image_check);
+            videoIcon = (ImageView) itemView.findViewById(R.id.image_video_icon);
 
             itemView.setOnClickListener(new View.OnClickListener() {
                 @Override

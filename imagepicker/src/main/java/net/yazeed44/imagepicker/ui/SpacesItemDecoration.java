@@ -5,7 +5,7 @@ import android.support.v7.widget.RecyclerView;
 import android.view.View;
 
 /**
- * Created by yazeed44 on 6/13/15.
+ * Created by yazeed44 on 7/15/15.
  */
 public class SpacesItemDecoration extends RecyclerView.ItemDecoration {
 
@@ -21,9 +21,6 @@ public class SpacesItemDecoration extends RecyclerView.ItemDecoration {
         outRect.right = mSpace;
         outRect.bottom = mSpace;
 
-       /* // Add top margin only for the first item to avoid double space between items
-        if(parent.getChildPosition(view) == 0)
-            outRect.top = mSpace;
-            */
+
     }
 }

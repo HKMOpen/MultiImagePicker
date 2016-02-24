@@ -15,12 +15,13 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.AbsListView;
 import android.widget.ImageView;
+import android.widget.Toast;
 
 import com.afollestad.materialdialogs.MaterialDialog;
 import com.bumptech.glide.Glide;
 
+import net.yazeed44.imagepicker.model.ImageEntry;
 import net.yazeed44.imagepicker.sample.R;
-import net.yazeed44.imagepicker.util.ImageEntry;
 import net.yazeed44.imagepicker.util.Picker;
 
 import java.util.ArrayList;
@@ -36,6 +37,7 @@ public class MainActivity extends AppCompatActivity implements Picker.PickListen
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
 
         mImageSampleRecycler = (RecyclerView) findViewById(R.id.images_sample);
         setupRecycler();
@@ -55,19 +57,36 @@ public class MainActivity extends AppCompatActivity implements Picker.PickListen
 
     public void onClickPickImageSingle(View view) {
 
-        new Picker.Builder(this, this)
+        new Picker.Builder(this, this, R.style.MIP_theme)
                 .setPickMode(Picker.PickMode.SINGLE_IMAGE)
                 .build()
                 .startActivity();
     }
 
-    public void onClickPickImageMultiple(View view) {
-        new Picker.Builder(this, this)
+    public void onClickPickImageMultipleWithLimit(View view) {
+        new Picker.Builder(this, this, R.style.MIP_theme)
                 .setPickMode(Picker.PickMode.MULTIPLE_IMAGES)
+                .setLimit(6)
                 .build()
                 .startActivity();
     }
 
+    public void onPickImageMultipleInfinite(View view) {
+        new Picker.Builder(this, this, R.style.MIP_theme)
+                .setPickMode(Picker.PickMode.MULTIPLE_IMAGES)
+                .build()
+                .startActivity();
+
+    }
+
+    public void onClickPickImageWithVideos(View view) {
+        new Picker.Builder(this, this, R.style.MIP_theme)
+                .setPickMode(Picker.PickMode.MULTIPLE_IMAGES)
+                .setVideosEnabled(true)
+                .build()
+                .startActivity();
+
+    }
 
 
     @Override
@@ -126,6 +145,7 @@ public class MainActivity extends AppCompatActivity implements Picker.PickListen
     @Override
     public void onCancel() {
         Log.i(TAG, "User canceled picker activity");
+        Toast.makeText(this, "User canceld picker activtiy", Toast.LENGTH_SHORT).show();
 
     }
 

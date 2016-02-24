@@ -1,5 +1,6 @@
 package net.yazeed44.imagepicker.ui;
 
+import android.support.v4.app.Fragment;
 import android.support.v7.widget.RecyclerView;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -12,7 +13,7 @@ import android.widget.TextView;
 import com.bumptech.glide.Glide;
 
 import net.yazeed44.imagepicker.library.R;
-import net.yazeed44.imagepicker.util.AlbumEntry;
+import net.yazeed44.imagepicker.model.AlbumEntry;
 import net.yazeed44.imagepicker.util.Events;
 import net.yazeed44.imagepicker.util.Picker;
 import net.yazeed44.imagepicker.util.Util;
@@ -29,11 +30,13 @@ public class AlbumsAdapter extends RecyclerView.Adapter<AlbumsAdapter.AlbumViewH
     public final RecyclerView mRecycler;
     protected final ArrayList<AlbumEntry> mAlbumList;
     protected final Picker mPickOptions;
+    private final Fragment mFragment;
 
-    public AlbumsAdapter(final ArrayList<AlbumEntry> albums, RecyclerView mRecycler, Picker pickOptions) {
+    public AlbumsAdapter(final Fragment fragment, final ArrayList<AlbumEntry> albums, final RecyclerView recyclerView) {
+        mFragment = fragment;
         this.mAlbumList = albums;
-        this.mRecycler = mRecycler;
-        mPickOptions = pickOptions;
+        this.mRecycler = recyclerView;
+        mPickOptions = EventBus.getDefault().getStickyEvent(Events.OnPublishPickOptionsEvent.class).options;
     }
 
 
@@ -46,8 +49,9 @@ public class AlbumsAdapter extends RecyclerView.Adapter<AlbumsAdapter.AlbumViewH
 
     @Override
     public void onBindViewHolder(AlbumViewHolder holder, int position) {
+        final AlbumEntry albumEntry = mAlbumList.get(position);
         setHeight(holder.itemView);
-        setupAlbum(holder, mAlbumList.get(position));
+        setupAlbum(holder, albumEntry);
 
     }
 
@@ -69,7 +73,7 @@ public class AlbumsAdapter extends RecyclerView.Adapter<AlbumsAdapter.AlbumViewH
 
     public void setHeight(final View layout) {
 
-        final int height = mRecycler.getResources().getDimensionPixelSize(R.dimen.album_height);
+        final int height = mRecycler.getMeasuredWidth() / mRecycler.getResources().getInteger(R.integer.num_columns_albums);
 
         layout.setLayoutParams(new AbsListView.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, height));
 
@@ -85,17 +89,17 @@ public class AlbumsAdapter extends RecyclerView.Adapter<AlbumsAdapter.AlbumViewH
         holder.name.setText(album.name);
         holder.count.setText(album.imageList.size() + "");
 
-        Glide.with(mRecycler.getContext())
+        holder.detailsLayout.setBackgroundColor(mPickOptions.albumBackgroundColor);
+
+        Glide.with(mFragment)
                 .load(album.coverImage.path)
                 .asBitmap()
                 .centerCrop()
                 .into(holder.thumbnail);
 
-        holder.detailsLayout.setBackgroundColor(mPickOptions.albumBackgroundColor);
     }
 
-
-    class AlbumViewHolder extends RecyclerView.ViewHolder {
+    static class AlbumViewHolder extends RecyclerView.ViewHolder {
         protected final ImageView thumbnail;
         protected final TextView count;
         protected final TextView name;

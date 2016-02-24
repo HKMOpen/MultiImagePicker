@@ -1,6 +1,6 @@
 package net.yazeed44.imagepicker.ui;
 
-import android.content.Context;
+import android.support.v4.app.Fragment;
 import android.support.v4.view.PagerAdapter;
 import android.view.View;
 import android.view.ViewGroup;
@@ -8,8 +8,8 @@ import android.widget.ImageView;
 
 import com.bumptech.glide.Glide;
 
-import net.yazeed44.imagepicker.util.AlbumEntry;
-import net.yazeed44.imagepicker.util.ImageEntry;
+import net.yazeed44.imagepicker.model.AlbumEntry;
+import net.yazeed44.imagepicker.model.ImageEntry;
 
 import uk.co.senab.photoview.PhotoView;
 import uk.co.senab.photoview.PhotoViewAttacher;
@@ -21,12 +21,12 @@ public class ImagePagerAdapter extends PagerAdapter {
 
 
     protected final AlbumEntry mAlbumEntry;
-    protected final Context mContext;
+    protected final Fragment mFragment;
     protected final PhotoViewAttacher.OnViewTapListener mTapListener;
 
-    public ImagePagerAdapter(final AlbumEntry albumEntry, final Context context, final PhotoViewAttacher.OnViewTapListener tapListener) {
+    public ImagePagerAdapter(final Fragment fragment, final AlbumEntry albumEntry, final PhotoViewAttacher.OnViewTapListener tapListener) {
         mAlbumEntry = albumEntry;
-        mContext = context;
+        mFragment = fragment;
         mTapListener = tapListener;
     }
 
@@ -43,12 +43,13 @@ public class ImagePagerAdapter extends PagerAdapter {
     @Override
     public Object instantiateItem(ViewGroup container, int position) {
         final ImageEntry imageEntry = mAlbumEntry.imageList.get(position);
-        final PhotoView view = new PhotoView(mContext);
+        final PhotoView view = new PhotoView(mFragment.getActivity());
         view.setOnViewTapListener(mTapListener);
 
 
-        Glide.with(mContext)
+        Glide.with(mFragment)
                 .load(imageEntry.path)
+                .asBitmap()
                 .into(view);
 
         container.addView(view, ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);
